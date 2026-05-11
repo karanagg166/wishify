@@ -1,0 +1,60 @@
+# Environment Variable Setup Guide
+
+Follow these steps to acquire the remaining credentials for your `.env` file.
+
+## 1. Better Auth Secret
+This is a random string used for encryption. You can generate one instantly:
+- Run this command in your terminal:
+  ```bash
+  openssl rand -base64 32
+  ```
+- Copy the output into `BETTER_AUTH_SECRET`.
+
+---
+
+## 2. Google OAuth Credentials
+Needed for "Login with Google".
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a **New Project** (call it "Wishify").
+3. Go to **APIs & Services > OAuth consent screen**.
+   - Choose "External" and fill in the app name and your email.
+4. Go to **APIs & Services > Credentials**.
+5. Click **Create Credentials > OAuth client ID**.
+   - Select **Web application**.
+   - **Authorized JavaScript origins**: `http://localhost:3000`
+   - **Authorized redirect URIs**: `http://localhost:3000/api/auth/callback/google`
+6. Copy the **Client ID** and **Client Secret**.
+
+---
+
+## 3. Cloudinary Credentials
+Needed for storing user profile pictures and sharing cards.
+1. Sign up/Login to [Cloudinary](https://cloudinary.com/).
+2. Go to your **Dashboard**.
+3. In the "Account Details" section, you will see:
+   - **Cloud Name**
+   - **API Key**
+   - **API Secret**
+4. Copy these into the corresponding `CLOUDINARY_*` variables.
+
+---
+
+## 4. App URL
+For local development, keep these as:
+- `NEXT_PUBLIC_APP_URL="http://localhost:3000"`
+- `BETTER_AUTH_URL="http://localhost:3000/api/auth"`
+
+---
+
+## Next Steps after filling .env:
+Once your `.env` is ready, run:
+```bash
+# 1. Sync database schema
+pnpm db:push
+
+# 2. Seed templates (Birthday, Anniversary, etc.)
+pnpm db:seed
+
+# 3. Start development
+pnpm dev
+```

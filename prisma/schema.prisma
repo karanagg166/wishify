@@ -1,0 +1,138 @@
+wgenerator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum Provider {
+  GOOGLE
+  EMAIL
+  GUEST
+}
+
+enum Tier {
+  FREE
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  FREE
+  PREMIUM
+  EXPIRED
+}
+
+// ─── Auth Models (Better Auth required) ─────────────────────────────────────
+
+model User {
+  id            String             @id @default(cuid())
+  name          String?
+  email         String?            @unique
+  emailVerified Boolean            @default(false)
+  image         String?
+  provider      Provider           @default(GUEST)
+  subscription  SubscriptionStatus @default(FREE)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  accounts    Account[]
+  sessions    Session[]
+  shares      Share[]
+
+  @@map("users")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("accounts")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@map("verifications")
+}
+
+// ─── App Models ───────────────────────────────────────────────────────────────
+
+model Category {
+  id        String     @id @default(cuid())
+  slug      String     @unique
+  label     String
+  icon      String?
+  sortOrder Int        @default(0)
+  templates Template[]
+
+  @@map("categories")
+}
+
+model Template {
+  id            String   @id @default(cuid())
+  title         String
+  imageUrl      String
+  thumbUrl      String
+  tier          Tier     @default(FREE)
+  categoryId    String
+  overlayConfig Json
+  sortOrder     Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  category Category @relation(fields: [categoryId], references: [id])
+  shares   Share[]
+
+  @@map("templates")
+}
+
+model Share {
+  id           String   @id @default(cuid())
+  userId       String
+  templateId   String
+  renderedUrl  String?
+  cloudinaryId String?
+  platform     String   @default("NATIVE")
+  createdAt    DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template Template @relation(fields: [templateId], references: [id])
+
+  @@map("shares")
+}
