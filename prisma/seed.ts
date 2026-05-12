@@ -1,23 +1,14 @@
+import "dotenv/config";
 import { PrismaClient, Tier } from "@prisma/client";
+import { PrismaNeon } from "@prisma/adapter-neon";
 
-const prisma = new PrismaClient();
-
-const DEFAULT_OVERLAY = {
-  nameX: 200,
-  nameY: 420,
-  nameAnchor: "center",
-  avatarX: 155,
-  avatarY: 30,
-  avatarSize: 90,
-  fontSize: 20,
-  textColor: "#1a1a1a",
-  fontFamily: "Inter, sans-serif",
-};
+const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("🌱 Seeding database...");
 
-  // Categories
+  // ── Categories ──────────────────────────────────────────────────────────
   const birthday = await prisma.category.upsert({
     where: { slug: "birthday" },
     update: {},
@@ -54,35 +45,191 @@ async function main() {
     create: { slug: "love", label: "Love", icon: "❤️", sortOrder: 6 },
   });
 
-  // Templates (using placeholder images from /public)
+  // ── Templates ───────────────────────────────────────────────────────────
   const templates = [
     // Birthday
-    { title: "Sunset Birthday", imageUrl: "/images/templates/birthday-1.jpg", thumbUrl: "/images/templates/birthday-1.jpg", tier: Tier.FREE, categoryId: birthday.id, sortOrder: 1 },
-    { title: "Balloon Party", imageUrl: "/images/templates/birthday-2.jpg", thumbUrl: "/images/templates/birthday-2.jpg", tier: Tier.FREE, categoryId: birthday.id, sortOrder: 2 },
-    { title: "Golden Wishes", imageUrl: "/images/templates/birthday-3.jpg", thumbUrl: "/images/templates/birthday-3.jpg", tier: Tier.PREMIUM, categoryId: birthday.id, sortOrder: 3 },
+    {
+      title: "Sunset Birthday",
+      imageUrl: "/templates/birthday-1.png",
+      thumbUrl: "/templates/birthday-1.png",
+      tier: Tier.FREE,
+      categoryId: birthday.id,
+      sortOrder: 1,
+      overlayConfig: {
+        nameX: 200, nameY: 400, nameAnchor: "center",
+        avatarX: 155, avatarY: 20, avatarSize: 80,
+        fontSize: 22, textColor: "#ffffff", fontFamily: "Inter, sans-serif",
+      },
+    },
+    {
+      title: "Balloon Party",
+      imageUrl: "/templates/birthday-2.png",
+      thumbUrl: "/templates/birthday-2.png",
+      tier: Tier.PREMIUM,
+      categoryId: birthday.id,
+      sortOrder: 2,
+      overlayConfig: {
+        nameX: 200, nameY: 420, nameAnchor: "center",
+        avatarX: 155, avatarY: 30, avatarSize: 90,
+        fontSize: 20, textColor: "#1a1a1a", fontFamily: "Inter, sans-serif",
+      },
+    },
     // Anniversary
-    { title: "Rose Gold", imageUrl: "/images/templates/anniversary-1.jpg", thumbUrl: "/images/templates/anniversary-1.jpg", tier: Tier.FREE, categoryId: anniversary.id, sortOrder: 1 },
-    { title: "Forever Yours", imageUrl: "/images/templates/anniversary-2.jpg", thumbUrl: "/images/templates/anniversary-2.jpg", tier: Tier.PREMIUM, categoryId: anniversary.id, sortOrder: 2 },
+    {
+      title: "Rose Gold",
+      imageUrl: "/templates/anniversary-1.png",
+      thumbUrl: "/templates/anniversary-1.png",
+      tier: Tier.FREE,
+      categoryId: anniversary.id,
+      sortOrder: 1,
+      overlayConfig: {
+        nameX: 200, nameY: 430, nameAnchor: "center",
+        avatarX: 155, avatarY: 25, avatarSize: 85,
+        fontSize: 18, textColor: "#ffffff", fontFamily: "Georgia, serif",
+      },
+    },
+    {
+      title: "Forever Yours",
+      imageUrl: "/templates/anniversary-2.png",
+      thumbUrl: "/templates/anniversary-2.png",
+      tier: Tier.PREMIUM,
+      categoryId: anniversary.id,
+      sortOrder: 2,
+      overlayConfig: {
+        nameX: 200, nameY: 410, nameAnchor: "center",
+        avatarX: 160, avatarY: 20, avatarSize: 80,
+        fontSize: 20, textColor: "#2d1810", fontFamily: "Georgia, serif",
+      },
+    },
     // Festival
-    { title: "Diwali Glow", imageUrl: "/images/templates/festival-1.jpg", thumbUrl: "/images/templates/festival-1.jpg", tier: Tier.FREE, categoryId: festival.id, sortOrder: 1 },
-    { title: "Holi Splash", imageUrl: "/images/templates/festival-2.jpg", thumbUrl: "/images/templates/festival-2.jpg", tier: Tier.FREE, categoryId: festival.id, sortOrder: 2 },
-    { title: "Eid Mubarak", imageUrl: "/images/templates/festival-3.jpg", thumbUrl: "/images/templates/festival-3.jpg", tier: Tier.PREMIUM, categoryId: festival.id, sortOrder: 3 },
+    {
+      title: "Diwali Glow",
+      imageUrl: "/templates/festival-diwali.png",
+      thumbUrl: "/templates/festival-diwali.png",
+      tier: Tier.FREE,
+      categoryId: festival.id,
+      sortOrder: 1,
+      overlayConfig: {
+        nameX: 200, nameY: 440, nameAnchor: "center",
+        avatarX: 155, avatarY: 15, avatarSize: 75,
+        fontSize: 18, textColor: "#ffd700", fontFamily: "Inter, sans-serif",
+      },
+    },
+    {
+      title: "Holi Splash",
+      imageUrl: "/templates/festival-holi.png",
+      thumbUrl: "/templates/festival-holi.png",
+      tier: Tier.FREE,
+      categoryId: festival.id,
+      sortOrder: 2,
+      overlayConfig: {
+        nameX: 200, nameY: 430, nameAnchor: "center",
+        avatarX: 155, avatarY: 25, avatarSize: 80,
+        fontSize: 20, textColor: "#ffffff", fontFamily: "Inter, sans-serif",
+      },
+    },
     // Shayari
-    { title: "Moonlit Words", imageUrl: "/images/templates/shayari-1.jpg", thumbUrl: "/images/templates/shayari-1.jpg", tier: Tier.FREE, categoryId: shayari.id, sortOrder: 1 },
-    { title: "Ink & Roses", imageUrl: "/images/templates/shayari-2.jpg", thumbUrl: "/images/templates/shayari-2.jpg", tier: Tier.PREMIUM, categoryId: shayari.id, sortOrder: 2 },
+    {
+      title: "Moonlit Words",
+      imageUrl: "/templates/shayari-1.png",
+      thumbUrl: "/templates/shayari-1.png",
+      tier: Tier.FREE,
+      categoryId: shayari.id,
+      sortOrder: 1,
+      overlayConfig: {
+        nameX: 200, nameY: 450, nameAnchor: "center",
+        avatarX: 155, avatarY: 10, avatarSize: 70,
+        fontSize: 16, textColor: "#d4af37", fontFamily: "Georgia, serif",
+      },
+    },
+    {
+      title: "Ink & Roses",
+      imageUrl: "/templates/shayari-2.png",
+      thumbUrl: "/templates/shayari-2.png",
+      tier: Tier.PREMIUM,
+      categoryId: shayari.id,
+      sortOrder: 2,
+      overlayConfig: {
+        nameX: 200, nameY: 440, nameAnchor: "center",
+        avatarX: 155, avatarY: 20, avatarSize: 80,
+        fontSize: 18, textColor: "#ffffff", fontFamily: "Georgia, serif",
+      },
+    },
     // Joke
-    { title: "Laugh Out Loud", imageUrl: "/images/templates/joke-1.jpg", thumbUrl: "/images/templates/joke-1.jpg", tier: Tier.FREE, categoryId: joke.id, sortOrder: 1 },
-    { title: "Meme Magic", imageUrl: "/images/templates/joke-2.jpg", thumbUrl: "/images/templates/joke-2.jpg", tier: Tier.PREMIUM, categoryId: joke.id, sortOrder: 2 },
+    {
+      title: "Laugh Out Loud",
+      imageUrl: "/templates/joke-1.png",
+      thumbUrl: "/templates/joke-1.png",
+      tier: Tier.FREE,
+      categoryId: joke.id,
+      sortOrder: 1,
+      overlayConfig: {
+        nameX: 200, nameY: 440, nameAnchor: "center",
+        avatarX: 155, avatarY: 25, avatarSize: 80,
+        fontSize: 20, textColor: "#1a1a1a", fontFamily: "Inter, sans-serif",
+      },
+    },
+    {
+      title: "Meme Magic",
+      imageUrl: "/templates/joke-2.png",
+      thumbUrl: "/templates/joke-2.png",
+      tier: Tier.PREMIUM,
+      categoryId: joke.id,
+      sortOrder: 2,
+      overlayConfig: {
+        nameX: 200, nameY: 430, nameAnchor: "center",
+        avatarX: 155, avatarY: 20, avatarSize: 80,
+        fontSize: 18, textColor: "#2d3748", fontFamily: "Inter, sans-serif",
+      },
+    },
     // Love
-    { title: "Red Hearts", imageUrl: "/images/templates/love-1.jpg", thumbUrl: "/images/templates/love-1.jpg", tier: Tier.FREE, categoryId: love.id, sortOrder: 1 },
-    { title: "Valentine Dream", imageUrl: "/images/templates/love-2.jpg", thumbUrl: "/images/templates/love-2.jpg", tier: Tier.PREMIUM, categoryId: love.id, sortOrder: 2 },
+    {
+      title: "Red Hearts",
+      imageUrl: "/templates/love-1.png",
+      thumbUrl: "/templates/love-1.png",
+      tier: Tier.FREE,
+      categoryId: love.id,
+      sortOrder: 1,
+      overlayConfig: {
+        nameX: 200, nameY: 440, nameAnchor: "center",
+        avatarX: 155, avatarY: 20, avatarSize: 85,
+        fontSize: 20, textColor: "#ffffff", fontFamily: "Georgia, serif",
+      },
+    },
+    {
+      title: "Valentine Dream",
+      imageUrl: "/templates/love-2.png",
+      thumbUrl: "/templates/love-2.png",
+      tier: Tier.PREMIUM,
+      categoryId: love.id,
+      sortOrder: 2,
+      overlayConfig: {
+        nameX: 200, nameY: 430, nameAnchor: "center",
+        avatarX: 160, avatarY: 15, avatarSize: 80,
+        fontSize: 18, textColor: "#5b2333", fontFamily: "Georgia, serif",
+      },
+    },
   ];
 
   for (const t of templates) {
+    const seedId = `seed-${t.title.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
     await prisma.template.upsert({
-      where: { id: `seed-${t.title.toLowerCase().replace(/\s/g, "-")}` },
-      update: {},
-      create: { ...t, id: `seed-${t.title.toLowerCase().replace(/\s/g, "-")}`, overlayConfig: DEFAULT_OVERLAY },
+      where: { id: seedId },
+      update: {
+        imageUrl: t.imageUrl,
+        thumbUrl: t.thumbUrl,
+        overlayConfig: t.overlayConfig,
+      },
+      create: {
+        id: seedId,
+        title: t.title,
+        imageUrl: t.imageUrl,
+        thumbUrl: t.thumbUrl,
+        tier: t.tier,
+        categoryId: t.categoryId,
+        sortOrder: t.sortOrder,
+        overlayConfig: t.overlayConfig,
+      },
     });
   }
 
