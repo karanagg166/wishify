@@ -23,7 +23,7 @@ export function ShareSheet({ open, template, onClose }: ShareSheetProps) {
     if (!template) return null;
 
     try {
-      const { Canvas, FabricImage, FabricText, Circle } = await import("fabric");
+      const { Canvas, FabricImage, FabricText, Circle, Rect } = await import("fabric");
       const overlay: OverlayConfig = (template.overlayConfig as OverlayConfig) ?? {
         nameX: 200, nameY: 420, nameAnchor: "center",
         avatarX: 155, avatarY: 30, avatarSize: 90,
@@ -52,19 +52,61 @@ export function ShareSheet({ open, template, onClose }: ShareSheetProps) {
       canvas.add(bgImg);
       canvas.sendObjectToBack(bgImg);
 
-      // Avatar
+      // Dark name banner at top (matching reference design)
+      const name = user?.name ?? "Your Name";
+      const BANNER_H = 48;
+      const banner = new Rect({
+        left: 0,
+        top: 0,
+        width: 800,
+        height: BANNER_H,
+        fill: "rgba(0,0,0,0.75)",
+        selectable: false,
+        evented: false,
+      });
+      canvas.add(banner);
+
+      const text = new FabricText(name, {
+        left: 400,
+        top: BANNER_H / 2,
+        originX: "center",
+        originY: "center",
+        fontSize: 22,
+        fill: "#ffffff",
+        fontFamily: overlay.fontFamily ?? "Inter, sans-serif",
+        fontWeight: "700",
+        selectable: false,
+        evented: false,
+      });
+      canvas.add(text);
+
+      // Avatar with green border
       if (user?.image) {
         try {
-          const scaledSize = overlay.avatarSize * 2;
+          const avatarSize = 80;
+          const borderSize = 6;
+          const avatarX = 16;
+          const avatarY = 32;
+
+          const borderCircle = new Circle({
+            radius: (avatarSize / 2) + borderSize,
+            left: avatarX - borderSize,
+            top: avatarY - borderSize,
+            fill: "#16a34a",
+            selectable: false,
+            evented: false,
+          });
+          canvas.add(borderCircle);
+
           const avatarImg = await FabricImage.fromURL(user.image, {
             crossOrigin: "anonymous",
           });
-          avatarImg.scaleToWidth(scaledSize);
+          avatarImg.scaleToWidth(avatarSize);
           avatarImg.set({
-            left: overlay.avatarX * 2,
-            top: overlay.avatarY * 2,
+            left: avatarX,
+            top: avatarY,
             clipPath: new Circle({
-              radius: scaledSize / 2,
+              radius: avatarSize / 2,
               originX: "center",
               originY: "center",
             }),
@@ -77,21 +119,6 @@ export function ShareSheet({ open, template, onClose }: ShareSheetProps) {
         }
       }
 
-      // Name
-      const name = user?.name ?? "Your Name";
-      const text = new FabricText(name, {
-        left: overlay.nameX * 2,
-        top: overlay.nameY * 2,
-        originX: (overlay.nameAnchor as "center" | "left" | "right") ?? "center",
-        originY: "center",
-        fontSize: overlay.fontSize * 2,
-        fill: overlay.textColor,
-        fontFamily: overlay.fontFamily ?? "Inter, sans-serif",
-        fontWeight: "700",
-        selectable: false,
-        evented: false,
-      });
-      canvas.add(text);
       canvas.renderAll();
 
       const dataUrl = canvas.toDataURL({ multiplier: 1, format: "jpeg", quality: 0.92 });
@@ -118,12 +145,12 @@ export function ShareSheet({ open, template, onClose }: ShareSheetProps) {
 
     setStatus("sharing");
     try {
-      // Save share record
-      await fetch("/api/shares", {
+      // Save share record (non-blocking)
+      fetch("/api/shares", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ templateId: template.id }),
-      }).catch(() => {}); // Non-blocking
+        body: JSON.stringify({ templateId: template.id, platform: "NATIVE" }),
+      }).catch(() => {});
 
       const file = new File([blob], "wishify-card.jpg", { type: "image/jpeg" });
 
@@ -159,6 +186,14 @@ export function ShareSheet({ open, template, onClose }: ShareSheetProps) {
   const handleWhatsApp = useCallback(async () => {
     if (!template) return;
     setStatus("rendering");
+
+    // Save share record
+    fetch("/api/shares", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ templateId: template.id, platform: "WHATSAPP" }),
+    }).catch(() => {});
+
     const blob = await renderAndGetBlob();
     setStatus("idle");
 
@@ -176,9 +211,74 @@ export function ShareSheet({ open, template, onClose }: ShareSheetProps) {
     );
   }, [template, renderAndGetBlob]);
 
+  const handleInstagram = useCallback(async () => {
+    if (!template) return;
+    setStatus("rendering");
+
+    // Save share record
+    fetch("/api/shares", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ templateId: template.id, platform: "INSTAGRAM" }),
+    }).catch(() => {});
+
+    const blob = await renderAndGetBlob();
+    setStatus("idle");
+
+    if (blob) {
+      const file = new File([blob], "wishify-card.jpg", { type: "image/jpeg" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file] });
+        return;
+      }
+      // Fallback: download + prompt to open Instagram
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "wishify-card.jpg";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  }, [template, renderAndGetBlob]);
+
+  const handleEmail = useCallback(async () => {
+    if (!template) return;
+    setStatus("rendering");
+
+    // Save share record
+    fetch("/api/shares", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ templateId: template.id, platform: "EMAIL" }),
+    }).catch(() => {});
+
+    const blob = await renderAndGetBlob();
+    setStatus("idle");
+
+    if (blob) {
+      const file = new File([blob], "wishify-card.jpg", { type: "image/jpeg" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file] });
+        return;
+      }
+    }
+    // Fallback: open mailto
+    const subject = encodeURIComponent(`${user?.name ?? "Someone"} sent you a Wishify greeting! 🎉`);
+    const emailBody = encodeURIComponent("I made a personalized greeting card on Wishify! Check it out at https://wishify.app");
+    window.open(`mailto:?subject=${subject}&body=${emailBody}`, "_self");
+  }, [template, user, renderAndGetBlob]);
+
   const handleDownload = useCallback(async () => {
     if (!template) return;
     setStatus("rendering");
+
+    // Save share record
+    fetch("/api/shares", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ templateId: template.id, platform: "DOWNLOAD" }),
+    }).catch(() => {});
+
     const blob = await renderAndGetBlob();
     setStatus("idle");
 
@@ -214,6 +314,7 @@ export function ShareSheet({ open, template, onClose }: ShareSheetProps) {
               position: "fixed",
               inset: 0,
               background: "rgba(0,0,0,0.4)",
+              backdropFilter: "blur(4px)",
               zIndex: 50,
             }}
           />
@@ -305,12 +406,14 @@ export function ShareSheet({ open, template, onClose }: ShareSheetProps) {
               style={{
                 display: "flex",
                 justifyContent: "center",
-                gap: "0.75rem",
+                gap: "0.5rem",
                 flexWrap: "wrap",
               }}
             >
               {[
                 { label: "WhatsApp", icon: "💬", action: handleWhatsApp },
+                { label: "Instagram", icon: "📸", action: handleInstagram },
+                { label: "Email", icon: "✉️", action: handleEmail },
                 { label: "Download", icon: "⬇️", action: handleDownload },
                 { label: "Copy Link", icon: "🔗", action: handleCopyLink },
               ].map(({ label, icon, action }) => (
@@ -323,7 +426,7 @@ export function ShareSheet({ open, template, onClose }: ShareSheetProps) {
                     background: "none",
                     border: "1.5px solid #e5e7eb",
                     borderRadius: 99,
-                    padding: "0.4rem 0.875rem",
+                    padding: "0.4rem 0.75rem",
                     fontSize: "0.8125rem",
                     fontWeight: 500,
                     color: "#374151",

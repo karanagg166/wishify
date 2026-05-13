@@ -3,16 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { signIn } from "@/lib/auth-client";
+import { signIn, signUp } from "@/lib/auth-client";
 import { APP_NAME, APP_DESCRIPTION } from "@/constants/config";
 import { ROUTES } from "@/constants/routes";
 
 type View = "landing" | "loading";
+type AuthMode = "signin" | "signup";
 
 export default function LoginClient() {
   const router = useRouter();
   const [view, setView] = useState<View>("landing");
   const [error, setError] = useState<string | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
 
   async function handleGoogle() {
     setView("loading");
@@ -31,6 +36,41 @@ export default function LoginClient() {
       router.push(ROUTES.HOME);
     } catch {
       setError("Could not sign in as guest. Please try again.");
+      setView("landing");
+    }
+  }
+
+  async function handleEmailAuth() {
+    if (!email.trim() || !password.trim()) {
+      setError("Please enter both email and password.");
+      return;
+    }
+    if (authMode === "signup" && !name.trim()) {
+      setError("Please enter your name.");
+      return;
+    }
+    setView("loading");
+    setError(null);
+    try {
+      if (authMode === "signup") {
+        await signUp.email({
+          email: email.trim(),
+          password: password.trim(),
+          name: name.trim(),
+        });
+      } else {
+        await signIn.email({
+          email: email.trim(),
+          password: password.trim(),
+        });
+      }
+      router.push(ROUTES.HOME);
+    } catch {
+      setError(
+        authMode === "signup"
+          ? "Sign up failed. Email may already be in use."
+          : "Invalid email or password."
+      );
       setView("landing");
     }
   }
@@ -97,7 +137,7 @@ export default function LoginClient() {
             }}
           >
             {/* Logo / Brand */}
-            <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+            <div style={{ textAlign: "center", marginBottom: "2rem" }}>
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
@@ -135,7 +175,7 @@ export default function LoginClient() {
             </div>
 
             {/* Auth card */}
-            <div className="card" style={{ padding: "2rem", borderRadius: "1.25rem" }}>
+            <div className="card" style={{ padding: "1.75rem", borderRadius: "1.25rem" }}>
               <AnimatePresence>
                 {error && (
                   <motion.div
@@ -148,7 +188,7 @@ export default function LoginClient() {
                       border: "1px solid #fecaca",
                       borderRadius: "0.625rem",
                       padding: "0.75rem 1rem",
-                      marginBottom: "1.25rem",
+                      marginBottom: "1rem",
                       color: "#dc2626",
                       fontSize: "0.875rem",
                     }}
@@ -158,7 +198,7 @@ export default function LoginClient() {
                 )}
               </AnimatePresence>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                 {/* Google */}
                 <button
                   id="btn-google-signin"
@@ -168,11 +208,113 @@ export default function LoginClient() {
                     width: "100%",
                     fontSize: "0.9375rem",
                     fontWeight: 600,
-                    padding: "0.875rem 1.5rem",
+                    padding: "0.75rem 1.5rem",
                   }}
                 >
                   <GoogleIcon />
                   Continue with Google
+                </button>
+
+                {/* Divider */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    color: "#9ca3af",
+                    fontSize: "0.8125rem",
+                  }}
+                >
+                  <hr style={{ flex: 1, border: "none", borderTop: "1px solid #e5e7eb" }} />
+                  or continue with email
+                  <hr style={{ flex: 1, border: "none", borderTop: "1px solid #e5e7eb" }} />
+                </div>
+
+                {/* Email / Password form */}
+                {authMode === "signup" && (
+                  <input
+                    id="email-name-input"
+                    type="text"
+                    placeholder="Full name"
+                    value={name}
+                    onChange={(e) => { setName(e.target.value); setError(null); }}
+                    style={{
+                      width: "100%",
+                      padding: "0.7rem 1rem",
+                      border: "1.5px solid #e5e7eb",
+                      borderRadius: "0.625rem",
+                      fontSize: "0.9375rem",
+                      outline: "none",
+                      background: "#f9fafb",
+                      transition: "border-color 0.2s",
+                    }}
+                  />
+                )}
+
+                <input
+                  id="email-input"
+                  type="email"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                  style={{
+                    width: "100%",
+                    padding: "0.7rem 1rem",
+                    border: "1.5px solid #e5e7eb",
+                    borderRadius: "0.625rem",
+                    fontSize: "0.9375rem",
+                    outline: "none",
+                    background: "#f9fafb",
+                    transition: "border-color 0.2s",
+                  }}
+                />
+
+                <input
+                  id="password-input"
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError(null); }}
+                  style={{
+                    width: "100%",
+                    padding: "0.7rem 1rem",
+                    border: "1.5px solid #e5e7eb",
+                    borderRadius: "0.625rem",
+                    fontSize: "0.9375rem",
+                    outline: "none",
+                    background: "#f9fafb",
+                    transition: "border-color 0.2s",
+                  }}
+                />
+
+                <button
+                  id="btn-email-signin"
+                  onClick={handleEmailAuth}
+                  className="btn-primary"
+                  style={{ width: "100%", padding: "0.75rem 1.5rem" }}
+                >
+                  {authMode === "signup" ? "🚀 Create Account" : "📧 Sign In with Email"}
+                </button>
+
+                <button
+                  id="btn-toggle-auth-mode"
+                  onClick={() => {
+                    setAuthMode((m) => (m === "signin" ? "signup" : "signin"));
+                    setError(null);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#7c3aed",
+                    fontSize: "0.8125rem",
+                    cursor: "pointer",
+                    fontWeight: 500,
+                    padding: "0.25rem",
+                  }}
+                >
+                  {authMode === "signin"
+                    ? "Don't have an account? Sign up"
+                    : "Already have an account? Sign in"}
                 </button>
 
                 {/* Divider */}
@@ -194,8 +336,8 @@ export default function LoginClient() {
                 <button
                   id="btn-guest-signin"
                   onClick={handleGuest}
-                  className="btn-primary"
-                  style={{ width: "100%", padding: "0.875rem 1.5rem" }}
+                  className="btn-secondary"
+                  style={{ width: "100%", padding: "0.75rem 1.5rem" }}
                 >
                   <span>👤</span>
                   Continue as Guest
@@ -205,7 +347,7 @@ export default function LoginClient() {
               <p
                 style={{
                   textAlign: "center",
-                  marginTop: "1.5rem",
+                  marginTop: "1.25rem",
                   fontSize: "0.75rem",
                   color: "#9ca3af",
                   lineHeight: 1.6,
@@ -232,7 +374,7 @@ export default function LoginClient() {
                 display: "flex",
                 justifyContent: "center",
                 gap: "1.5rem",
-                marginTop: "2rem",
+                marginTop: "1.75rem",
                 color: "#9ca3af",
                 fontSize: "0.8125rem",
               }}
