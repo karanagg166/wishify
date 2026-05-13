@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
+import { usePremium } from "@/context/PremiumContext";
+import { ROUTES } from "@/constants/routes";
 import { ShareSheet } from "@/components/share/ShareSheet";
-import type { Template } from "@/types";
+import type { Template, OverlayConfig } from "@/types";
 
 interface CardEditorClientProps {
   template: Template;
@@ -15,8 +17,119 @@ interface CardEditorClientProps {
 export function CardEditorClient({ template }: CardEditorClientProps) {
   const router = useRouter();
   const { user } = useAuth();
-  const [previewReady, setPreviewReady] = useState(false);
+  const { isPremiumUser } = usePremium();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fabricRef = useRef<InstanceType<typeof import("fabric").Canvas> | null>(null);
+  const [canvasReady, setCanvasReady] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+
+  const overlay: OverlayConfig = template.overlayConfig as OverlayConfig ?? {
+    nameX: 200, nameY: 420, nameAnchor: "center",
+    avatarX: 155, avatarY: 30, avatarSize: 90,
+    fontSize: 20, textColor: "#1a1a1a", fontFamily: "Inter, sans-serif",
+  };
+
+  // ── Initialize Fabric.js canvas ──────────────────────────────────────────
+  const initCanvas = useCallback(async () => {
+    if (!canvasRef.current) return;
+
+    const { Canvas, FabricImage, FabricText, Circle, Rect } = await import("fabric");
+
+    // Tear down any existing canvas
+    if (fabricRef.current) {
+      fabricRef.current.dispose();
+    }
+
+    const canvas = new Canvas(canvasRef.current, {
+      width: 400,
+      height: 500,
+      selection: false,
+      renderOnAddRemove: true,
+    });
+    fabricRef.current = canvas;
+
+    // 1. Background template image
+    const bgImg = await FabricImage.fromURL(template.imageUrl, {
+      crossOrigin: "anonymous",
+    });
+    bgImg.scaleToWidth(400);
+    bgImg.set({ selectable: false, evented: false, left: 0, top: 0 });
+    canvas.add(bgImg);
+    canvas.sendObjectToBack(bgImg);
+
+    // 2. Dark name banner at top (matching reference design)
+    const name = user?.name ?? "Your Name";
+    const BANNER_H = 28;
+    const banner = new Rect({
+      left: 0,
+      top: 0,
+      width: 400,
+      height: BANNER_H,
+      fill: "rgba(0,0,0,0.75)",
+      selectable: false,
+      evented: false,
+    });
+    canvas.add(banner);
+
+    const text = new FabricText(name, {
+      left: 200,
+      top: BANNER_H / 2,
+      originX: "center",
+      originY: "center",
+      fontSize: 14,
+      fill: "#ffffff",
+      fontFamily: overlay.fontFamily ?? "Inter, sans-serif",
+      fontWeight: "700",
+      selectable: false,
+      evented: false,
+    });
+    canvas.add(text);
+
+    // 3. Avatar with green border (matching reference design)
+    if (user?.image) {
+      try {
+        const avatarSize = 50;
+        const borderSize = 4;
+        const avatarX = 10;
+        const avatarY = 18;
+
+        const borderCircle = new Circle({
+          radius: (avatarSize / 2) + borderSize,
+          left: avatarX - borderSize,
+          top: avatarY - borderSize,
+          fill: "#16a34a",
+          selectable: false,
+          evented: false,
+        });
+        canvas.add(borderCircle);
+
+        const avatarImg = await FabricImage.fromURL(user.image, { crossOrigin: "anonymous" });
+        avatarImg.scaleToWidth(avatarSize);
+        avatarImg.set({
+          left: avatarX,
+          top: avatarY,
+          clipPath: new Circle({
+            radius: avatarSize / 2,
+            originX: "center",
+            originY: "center",
+          }),
+          selectable: false,
+          evented: false,
+        });
+        canvas.add(avatarImg);
+      } catch {
+        // Avatar load failed
+      }
+    }
+
+    canvas.renderAll();
+    setCanvasReady(true);
+  }, [template, user, overlay]);
+
+  useEffect(() => {
+    initCanvas();
+    return () => { fabricRef.current?.dispose(); };
+  }, [initCanvas]);
 
   return (
     <div style={{ minHeight: "100vh", background: "#fff", display: "flex", flexDirection: "column" }}>
