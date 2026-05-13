@@ -7,7 +7,11 @@ export function SkeletonGrid() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.875rem" }}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
+        gap: "1rem",
+      }}
     >
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} style={{ borderRadius: "1rem", overflow: "hidden" }}>

@@ -11,25 +11,36 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { templateId, imageData } = body as { templateId: string; imageData: string };
+    const { templateId, imageData, platform } = body as {
+      templateId: string;
+      imageData?: string;
+      platform?: string;
+    };
 
-    if (!templateId || !imageData) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    if (!templateId) {
+      return NextResponse.json({ error: "Missing templateId" }, { status: 400 });
     }
 
-    // Upload rendered card to Cloudinary
-    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
-    const buffer = Buffer.from(base64Data, "base64");
-    const { url, publicId } = await uploadToCloudinary(buffer, "wishify/shares");
+    let renderedUrl: string | undefined;
+    let cloudinaryId: string | undefined;
+
+    // Upload rendered card to Cloudinary only if imageData is provided
+    if (imageData) {
+      const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
+      const buffer = Buffer.from(base64Data, "base64");
+      const result = await uploadToCloudinary(buffer, "wishify/shares");
+      renderedUrl = result.url;
+      cloudinaryId = result.publicId;
+    }
 
     // Persist Share record
     const share = await prisma.share.create({
       data: {
         userId: session.user.id,
         templateId,
-        renderedUrl: url,
-        cloudinaryId: publicId,
-        platform: "NATIVE",
+        renderedUrl: renderedUrl ?? null,
+        cloudinaryId: cloudinaryId ?? null,
+        platform: platform ?? "NATIVE",
       },
     });
 

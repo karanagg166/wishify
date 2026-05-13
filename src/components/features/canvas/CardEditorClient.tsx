@@ -2,19 +2,17 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { usePremium } from "@/context/PremiumContext";
-import { particleBurst } from "@/lib/anime-effects";
 import { ROUTES } from "@/constants/routes";
+import { ShareSheet } from "@/components/share/ShareSheet";
 import type { Template, OverlayConfig } from "@/types";
 
 interface CardEditorClientProps {
   template: Template;
 }
-
-type ShareStatus = "idle" | "rendering" | "sharing" | "done";
 
 export function CardEditorClient({ template }: CardEditorClientProps) {
   const router = useRouter();
@@ -22,9 +20,8 @@ export function CardEditorClient({ template }: CardEditorClientProps) {
   const { isPremiumUser } = usePremium();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<InstanceType<typeof import("fabric").Canvas> | null>(null);
-  const shareBtnRef = useRef<HTMLButtonElement>(null);
-  const [status, setStatus] = useState<ShareStatus>("idle");
   const [canvasReady, setCanvasReady] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const overlay: OverlayConfig = template.overlayConfig as OverlayConfig ?? {
     nameX: 200, nameY: 420, nameAnchor: "center",
@@ -36,7 +33,7 @@ export function CardEditorClient({ template }: CardEditorClientProps) {
   const initCanvas = useCallback(async () => {
     if (!canvasRef.current) return;
 
-    const { Canvas, FabricImage, FabricText } = await import("fabric");
+    const { Canvas, FabricImage, FabricText, Circle, Rect } = await import("fabric");
 
     // Tear down any existing canvas
     if (fabricRef.current) {
@@ -60,39 +57,70 @@ export function CardEditorClient({ template }: CardEditorClientProps) {
     canvas.add(bgImg);
     canvas.sendObjectToBack(bgImg);
 
-    // 2. Avatar circle (if user has an image)
-    if (user?.image) {
-      const avatarImg = await FabricImage.fromURL(user.image, { crossOrigin: "anonymous" });
-      avatarImg.scaleToWidth(overlay.avatarSize);
-      avatarImg.set({
-        left: overlay.avatarX,
-        top: overlay.avatarY,
-        clipPath: new (await import("fabric")).Circle({
-          radius: overlay.avatarSize / 2,
-          originX: "center",
-          originY: "center",
-        }),
-        selectable: false,
-        evented: false,
-      });
-      canvas.add(avatarImg);
-    }
-
-    // 3. User name text
+    // 2. Dark name banner at top (matching reference design)
     const name = user?.name ?? "Your Name";
+    const BANNER_H = 28;
+    const banner = new Rect({
+      left: 0,
+      top: 0,
+      width: 400,
+      height: BANNER_H,
+      fill: "rgba(0,0,0,0.75)",
+      selectable: false,
+      evented: false,
+    });
+    canvas.add(banner);
+
     const text = new FabricText(name, {
-      left: overlay.nameX,
-      top: overlay.nameY,
-      originX: overlay.nameAnchor as "center" | "left" | "right",
+      left: 200,
+      top: BANNER_H / 2,
+      originX: "center",
       originY: "center",
-      fontSize: overlay.fontSize,
-      fill: overlay.textColor,
-      fontFamily: overlay.fontFamily,
+      fontSize: 14,
+      fill: "#ffffff",
+      fontFamily: overlay.fontFamily ?? "Inter, sans-serif",
       fontWeight: "700",
       selectable: false,
       evented: false,
     });
     canvas.add(text);
+
+    // 3. Avatar with green border (matching reference design)
+    if (user?.image) {
+      try {
+        const avatarSize = 50;
+        const borderSize = 4;
+        const avatarX = 10;
+        const avatarY = 18;
+
+        const borderCircle = new Circle({
+          radius: (avatarSize / 2) + borderSize,
+          left: avatarX - borderSize,
+          top: avatarY - borderSize,
+          fill: "#16a34a",
+          selectable: false,
+          evented: false,
+        });
+        canvas.add(borderCircle);
+
+        const avatarImg = await FabricImage.fromURL(user.image, { crossOrigin: "anonymous" });
+        avatarImg.scaleToWidth(avatarSize);
+        avatarImg.set({
+          left: avatarX,
+          top: avatarY,
+          clipPath: new Circle({
+            radius: avatarSize / 2,
+            originX: "center",
+            originY: "center",
+          }),
+          selectable: false,
+          evented: false,
+        });
+        canvas.add(avatarImg);
+      } catch {
+        // Avatar load failed
+      }
+    }
 
     canvas.renderAll();
     setCanvasReady(true);
@@ -102,51 +130,6 @@ export function CardEditorClient({ template }: CardEditorClientProps) {
     initCanvas();
     return () => { fabricRef.current?.dispose(); };
   }, [initCanvas]);
-
-  // ── Share handler ────────────────────────────────────────────────────────
-  const handleShare = useCallback(async () => {
-    if (!fabricRef.current || status !== "idle") return;
-    setStatus("rendering");
-
-    try {
-      const canvas = fabricRef.current;
-      const dataUrl = canvas.toDataURL({ format: "jpeg", quality: 0.92, multiplier: 2 });
-
-      // Save to DB as a Share record
-      setStatus("sharing");
-      await fetch("/api/shares", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ templateId: template.id, imageData: dataUrl }),
-      });
-
-      // Native share API
-      const blob = await (await fetch(dataUrl)).blob();
-      const file = new File([blob], "wishify-card.jpg", { type: "image/jpeg" });
-
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          title: `${user?.name ?? "My"} Wishify Greeting`,
-          files: [file],
-        });
-      } else {
-        // Fallback — trigger download
-        const a = document.createElement("a");
-        a.href = dataUrl;
-        a.download = "wishify-card.jpg";
-        a.click();
-      }
-
-      setStatus("done");
-      if (shareBtnRef.current?.parentElement) {
-        particleBurst(shareBtnRef.current.parentElement as HTMLElement);
-      }
-      setTimeout(() => setStatus("idle"), 3000);
-    } catch (err) {
-      console.error("[share]", err);
-      setStatus("idle");
-    }
-  }, [status, template.id, user]);
 
   return (
     <div style={{ minHeight: "100vh", background: "#fff", display: "flex", flexDirection: "column" }}>
@@ -228,40 +211,27 @@ export function CardEditorClient({ template }: CardEditorClientProps) {
           display: "flex", flexDirection: "column", gap: "0.625rem",
         }}
       >
-        <AnimatePresence mode="wait">
-          {status === "done" ? (
-            <motion.div
-              key="done"
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              style={{ textAlign: "center", color: "#16a34a", fontWeight: 600, padding: "0.75rem" }}
-            >
-              🎉 Shared successfully!
-            </motion.div>
-          ) : (
-            <motion.button
-              key="share"
-              ref={shareBtnRef}
-              id="btn-share"
-              onClick={handleShare}
-              disabled={status !== "idle"}
-              className="btn-primary"
-              style={{ width: "100%", padding: "1rem" }}
-              whileTap={{ scale: 0.97 }}
-            >
-              {status === "idle" && "🚀 Share this Wish"}
-              {status === "rendering" && "⚙️ Generating…"}
-              {status === "sharing" && "📤 Sharing…"}
-            </motion.button>
-          )}
-        </AnimatePresence>
+        <motion.button
+          id="btn-share"
+          onClick={() => setShareOpen(true)}
+          className="btn-primary"
+          style={{ width: "100%", padding: "1rem" }}
+          whileTap={{ scale: 0.97 }}
+        >
+          🚀 Share this Wish
+        </motion.button>
 
-        <div style={{ display: "flex", justifyContent: "center", gap: "1rem" }}>
-          {["WhatsApp", "Instagram", "Download"].map((s) => (
+        <div style={{ display: "flex", justifyContent: "center", gap: "0.75rem" }}>
+          {[
+            { label: "WhatsApp", icon: "💬" },
+            { label: "Instagram", icon: "📸" },
+            { label: "Email", icon: "✉️" },
+            { label: "Download", icon: "⬇️" },
+          ].map(({ label, icon }) => (
             <button
-              key={s}
-              id={`btn-share-${s.toLowerCase()}`}
-              onClick={handleShare}
+              key={label}
+              id={`btn-share-${label.toLowerCase()}`}
+              onClick={() => setShareOpen(true)}
               style={{
                 background: "none", border: "1.5px solid #e5e7eb",
                 borderRadius: 99, padding: "0.4rem 0.875rem",
@@ -269,11 +239,18 @@ export function CardEditorClient({ template }: CardEditorClientProps) {
                 cursor: "pointer",
               }}
             >
-              {s === "WhatsApp" ? "💬" : s === "Instagram" ? "📸" : "⬇️"} {s}
+              {icon} {label}
             </button>
           ))}
         </div>
       </div>
+
+      {/* ── Share Sheet ── */}
+      <ShareSheet
+        open={shareOpen}
+        template={template}
+        onClose={() => setShareOpen(false)}
+      />
     </div>
   );
 }

@@ -62,14 +62,14 @@ export function TemplateGrid({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <div
-              ref={gridRef}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "0.875rem",
-              }}
-            >
+              <div
+                ref={gridRef}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
+                  gap: "1rem",
+                }}
+              >
               {templates.map((t) => (
                 <TemplateCard
                   key={t.id}
