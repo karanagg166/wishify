@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import Image from "next/image";
@@ -172,15 +172,71 @@ export function CardEditorClient({ template }: CardEditorClientProps) {
             boxShadow: "0 8px 40px rgba(0,0,0,0.14)",
             maxWidth: 400,
             width: "100%",
+            aspectRatio: "4 / 5",
+            background: "#f3f4f6",
           }}
         >
-          {!canvasReady && (
+          {!previewReady && (
             <div
               className="skeleton"
               style={{ width: "100%", aspectRatio: "4/5", position: "absolute", inset: 0 }}
             />
           )}
-          <canvas ref={canvasRef} style={{ display: "block", maxWidth: "100%" }} />
+          <Image
+            src={template.imageUrl}
+            alt={template.title}
+            fill
+            sizes="(max-width: 640px) 92vw, 400px"
+            style={{ objectFit: "cover" }}
+            onLoad={() => setPreviewReady(true)}
+            priority
+          />
+
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: 0,
+              height: 28,
+              background: "rgba(0,0,0,0.75)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#fff",
+              fontSize: "0.875rem",
+              fontWeight: 700,
+              padding: "0 3.5rem",
+            }}
+          >
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {user?.name ?? "Your Name"}
+            </span>
+          </div>
+
+          {user?.image && (
+            <div
+              style={{
+                position: "absolute",
+                left: 10,
+                top: 18,
+                width: 50,
+                height: 50,
+                borderRadius: "50%",
+                border: "4px solid #16a34a",
+                overflow: "hidden",
+                background: "#fff",
+              }}
+            >
+              <Image
+                src={user.image}
+                alt="You"
+                fill
+                sizes="50px"
+                style={{ objectFit: "cover" }}
+              />
+            </div>
+          )}
         </motion.div>
 
         {/* ── User info strip ── */}

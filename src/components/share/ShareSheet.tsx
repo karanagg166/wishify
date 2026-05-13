@@ -37,9 +37,11 @@ export function ShareSheet({ open, template, onClose }: ShareSheetProps) {
       offscreen.style.display = "none";
       document.body.appendChild(offscreen);
 
+      const canvasW = 800;
+      const canvasH = 1000;
       const canvas = new Canvas(offscreen, {
-        width: 800,
-        height: 1000,
+        width: canvasW,
+        height: canvasH,
         selection: false,
       });
 
@@ -47,8 +49,14 @@ export function ShareSheet({ open, template, onClose }: ShareSheetProps) {
       const bgImg = await FabricImage.fromURL(template.imageUrl, {
         crossOrigin: "anonymous",
       });
-      bgImg.scaleToWidth(800);
-      bgImg.set({ selectable: false, evented: false, left: 0, top: 0 });
+      const bgScale = Math.max(canvasW / bgImg.width!, canvasH / bgImg.height!);
+      bgImg.scale(bgScale);
+      bgImg.set({
+        selectable: false,
+        evented: false,
+        left: (canvasW - bgImg.getScaledWidth()) / 2,
+        top: (canvasH - bgImg.getScaledHeight()) / 2,
+      });
       canvas.add(bgImg);
       canvas.sendObjectToBack(bgImg);
 
